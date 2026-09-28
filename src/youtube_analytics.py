@@ -1,9 +1,7 @@
 import time
 
-from googleapiclient.errors import HttpError
-
+from src.http_retry import call_with_http_retry
 from src.reports import ReportDef
-from src.retry import with_retry
 
 
 def parse_analytics_response(response: dict) -> list[dict]:
@@ -16,6 +14,12 @@ def shape_report_result(report_def: ReportDef, rows: list[dict]):
     if not report_def.dimensions:
         return rows[0] if rows else {}
     return rows
+
+
+def _apply_column_renames(rows: list[dict], renames: dict) -> list[dict]:
+    if not renames:
+        return rows
+    return [{renames.get(key, key): value for key, value in row.items()} for row in rows]
 
 
 def run_report(
@@ -39,5 +43,6 @@ def run_report(
     def _execute():
         return analytics_service.reports().query(**params).execute()
 
-    response = with_retry(_execute, retry_on=(HttpError,), sleep=sleep)
-    return parse_analytics_response(response)
+    response = call_with_http_retry(_execute, sleep=sleep)
+    rows = parse_analytics_response(response)
+    return _apply_column_renames(rows, report_def.column_renames)

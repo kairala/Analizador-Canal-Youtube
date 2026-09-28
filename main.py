@@ -35,13 +35,17 @@ def select_videos(videos, input_fn=input, print_fn=print):
 def extract_video(analytics_service, video, today, report_defs=REPORTS, print_fn=print):
     start_date, end_date = analytics_date_range(video["published_at"], today)
     shaped = {}
+    errors = {}
     for report_def in report_defs:
         try:
             rows = run_report(analytics_service, video["id"], start_date, end_date, report_def)
         except Exception as exc:
             print_fn(f"  aviso: falha ao extrair '{report_def.name}' para {video['id']}: {exc}")
             rows = []
+            errors[report_def.name] = str(exc)
         shaped[report_def.name] = shape_report_result(report_def, rows)
+    if errors:
+        shaped["errors"] = errors
     return shaped
 
 
@@ -64,6 +68,7 @@ def run(
     selected = select_videos(videos, input_fn=input_fn, print_fn=print_fn)
 
     documents = []
+    failed_ids = []
     for video in selected:
         print_fn(f"Processando '{video['title']}' ({video['id']})...")
         try:
@@ -73,10 +78,14 @@ def run(
             documents.append(document)
         except Exception as exc:
             print_fn(f"  erro ao processar {video['id']}, pulando: {exc}")
+            failed_ids.append(video["id"])
 
     if documents:
         save_consolidated(output_dir, documents, today.isoformat())
-        print_fn(f"Concluído: {len(documents)} vídeo(s) processado(s).")
+
+    print_fn(f"Concluído: {len(documents)} vídeo(s) processado(s), {len(failed_ids)} com erro.")
+    if failed_ids:
+        print_fn(f"Vídeos com erro: {', '.join(failed_ids)}")
 
 
 def main():

@@ -81,6 +81,7 @@ def test_extract_video_keeps_going_when_one_report_fails_or_is_empty():
     assert result["daily"] == []
     assert result["traffic_sources"] == []
     assert any("traffic_sources" in message for message in messages)
+    assert result["errors"] == {"traffic_sources": "quota exceeded"}
 
 
 # --- run (end to end with fakes) ---
@@ -144,6 +145,36 @@ def test_run_continues_when_saving_one_video_fails(tmp_path, monkeypatch):
     assert not (tmp_path / "por_video" / "vid1.json").exists()
     assert (tmp_path / "por_video" / "vid2.json").exists()
     assert (tmp_path / "consolidado.json").exists()
+
+
+def test_run_prints_summary_and_failed_ids_even_when_all_videos_fail(tmp_path, monkeypatch):
+    videos = [
+        {"id": "vid1", "title": "Video 1", "published_at": "2024-01-01T00:00:00Z", "duration": "PT1M"},
+        {"id": "vid2", "title": "Video 2", "published_at": "2024-01-02T00:00:00Z", "duration": "PT2M"},
+    ]
+    youtube_service = FakeYouTubeService(videos)
+    analytics_service = ScriptedAnalyticsService(_always_empty_responder)
+    monkeypatch.setattr(main_module, "list_channel_videos", fake_list_channel_videos)
+
+    def always_fails(output_dir, video_id, document):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(main_module, "save_video_report", always_fails)
+    messages = []
+
+    run(
+        youtube_service,
+        analytics_service,
+        tmp_path,
+        date(2024, 2, 1),
+        input_fn=lambda _prompt: "todos",
+        print_fn=messages.append,
+    )
+
+    assert not (tmp_path / "consolidado.json").exists()
+    summary = [m for m in messages if "Concluído" in m]
+    assert summary and "0 vídeo(s) processado(s)" in summary[0] and "2 com erro" in summary[0]
+    assert any("vid1" in m and "vid2" in m for m in messages if "erro" in m.lower())
 
 
 def test_run_handles_channel_with_no_videos(tmp_path, monkeypatch):

@@ -1,22 +1,25 @@
 import time
 
-from googleapiclient.errors import HttpError
-
-from src.retry import with_retry
+from src.http_retry import call_with_http_retry
 
 
 def list_channel_videos(youtube_service, sleep=time.sleep) -> list[dict]:
-    channel_response = with_retry(
+    channel_response = call_with_http_retry(
         lambda: youtube_service.channels().list(part="contentDetails", mine=True).execute(),
-        retry_on=(HttpError,),
         sleep=sleep,
     )
-    uploads_playlist_id = channel_response["items"][0]["contentDetails"]["relatedPlaylists"]["uploads"]
+    channel_items = channel_response.get("items", [])
+    if not channel_items:
+        raise ValueError(
+            "a conta autenticada não tem um canal do YouTube — apague token.json "
+            "e faça login novamente com a conta dona do canal"
+        )
+    uploads_playlist_id = channel_items[0]["contentDetails"]["relatedPlaylists"]["uploads"]
 
     items = []
     page_token = None
     while True:
-        response = with_retry(
+        response = call_with_http_retry(
             lambda: youtube_service.playlistItems()
             .list(
                 part="snippet,contentDetails",
@@ -25,7 +28,6 @@ def list_channel_videos(youtube_service, sleep=time.sleep) -> list[dict]:
                 pageToken=page_token,
             )
             .execute(),
-            retry_on=(HttpError,),
             sleep=sleep,
         )
         items.extend(response.get("items", []))
@@ -43,24 +45,28 @@ def list_channel_videos(youtube_service, sleep=time.sleep) -> list[dict]:
         for item in items
     ]
 
-    durations = _fetch_durations(youtube_service, [v["id"] for v in videos], sleep)
+    details = _fetch_video_details(youtube_service, [v["id"] for v in videos], sleep)
     for video in videos:
-        video["duration"] = durations.get(video["id"], "")
+        video_details = details.get(video["id"], {})
+        video["duration"] = video_details.get("duration", "")
+        video["privacy_status"] = video_details.get("privacy_status", "")
 
     return videos
 
 
-def _fetch_durations(youtube_service, video_ids: list[str], sleep) -> dict[str, str]:
-    durations = {}
+def _fetch_video_details(youtube_service, video_ids: list[str], sleep) -> dict[str, dict]:
+    details = {}
     for start in range(0, len(video_ids), 50):
         batch = video_ids[start : start + 50]
         if not batch:
             continue
-        response = with_retry(
-            lambda: youtube_service.videos().list(part="contentDetails", id=",".join(batch)).execute(),
-            retry_on=(HttpError,),
+        response = call_with_http_retry(
+            lambda: youtube_service.videos().list(part="contentDetails,status", id=",".join(batch)).execute(),
             sleep=sleep,
         )
         for item in response.get("items", []):
-            durations[item["id"]] = item["contentDetails"]["duration"]
-    return durations
+            details[item["id"]] = {
+                "duration": item["contentDetails"]["duration"],
+                "privacy_status": item.get("status", {}).get("privacyStatus", ""),
+            }
+    return details

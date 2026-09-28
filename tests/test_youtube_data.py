@@ -1,3 +1,5 @@
+import pytest
+
 from src.youtube_data import list_channel_videos
 
 
@@ -57,8 +59,8 @@ def test_list_channel_videos_paginates_and_merges_durations():
     ]
     videos_response = {
         "items": [
-            {"id": "vid1", "contentDetails": {"duration": "PT5M"}},
-            {"id": "vid2", "contentDetails": {"duration": "PT3M"}},
+            {"id": "vid1", "contentDetails": {"duration": "PT5M"}, "status": {"privacyStatus": "public"}},
+            {"id": "vid2", "contentDetails": {"duration": "PT3M"}, "status": {"privacyStatus": "unlisted"}},
         ]
     }
     service = FakeYouTubeService(channel_response, playlist_pages, videos_response)
@@ -66,8 +68,20 @@ def test_list_channel_videos_paginates_and_merges_durations():
     videos = list_channel_videos(service)
 
     assert videos == [
-        {"id": "vid1", "title": "Video 1", "published_at": "2024-01-01T00:00:00Z", "duration": "PT5M"},
-        {"id": "vid2", "title": "Video 2", "published_at": "2024-02-01T00:00:00Z", "duration": "PT3M"},
+        {
+            "id": "vid1",
+            "title": "Video 1",
+            "published_at": "2024-01-01T00:00:00Z",
+            "duration": "PT5M",
+            "privacy_status": "public",
+        },
+        {
+            "id": "vid2",
+            "title": "Video 2",
+            "published_at": "2024-02-01T00:00:00Z",
+            "duration": "PT3M",
+            "privacy_status": "unlisted",
+        },
     ]
 
 
@@ -80,3 +94,11 @@ def test_list_channel_videos_returns_empty_list_for_channel_with_no_uploads():
     service = FakeYouTubeService(channel_response, playlist_pages, videos_response)
 
     assert list_channel_videos(service) == []
+
+
+def test_list_channel_videos_raises_clear_error_when_account_has_no_channel():
+    channel_response = {"items": [], "pageInfo": {"totalResults": 0}}
+    service = FakeYouTubeService(channel_response, playlist_pages=[], videos_response={"items": []})
+
+    with pytest.raises(ValueError, match="não tem um canal"):
+        list_channel_videos(service)

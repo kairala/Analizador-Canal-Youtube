@@ -79,3 +79,21 @@ def test_run_report_omits_dimensions_key_for_aggregate_report():
     run_report(service, "vid1", "2024-01-01", "2024-02-01", report_def)
 
     assert "dimensions" not in service.last_kwargs
+
+
+def test_run_report_applies_column_renames():
+    response = {
+        "columnHeaders": [{"name": "day"}, {"name": "views"}],
+        "rows": [["2024-01-01", 10]],
+    }
+    service = FakeAnalyticsService(response)
+    report_def = ReportDef(
+        name="daily",
+        dimensions=["day"],
+        metrics=["views"],
+        column_renames={"day": "date"},
+    )
+
+    result = run_report(service, "vid1", "2024-01-01", "2024-02-01", report_def)
+
+    assert result == [{"date": "2024-01-01", "views": 10}]
