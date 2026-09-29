@@ -64,3 +64,33 @@ de retenção de audiência.
 ```bash
 pytest
 ```
+
+## 6. Gerar relatórios de performance com IA
+
+Depois de extrair os dados com `python main.py`, você pode gerar relatórios
+de performance escritos por IA (Claude) para os vídeos já extraídos.
+
+### Configurar a chave da Anthropic
+
+1. Crie uma chave em https://console.anthropic.com/ (seção "API Keys").
+2. Crie um arquivo `.env` na raiz do projeto (se ainda não existir) com:
+   ```
+   ANTHROPIC_API_KEY=sua-chave-aqui
+   ```
+   `.env` já está no `.gitignore` — nunca é commitado.
+
+### Rodar o script
+
+```bash
+python analyze.py
+```
+
+O script lista os vídeos já extraídos (em `output/por_video/`), você escolhe
+um, vários (`1,4,7`) ou `todos`, e para cada um gera um relatório em Markdown
+comparando o desempenho do vídeo com a média do canal, com recomendações.
+
+Os relatórios ficam em `reports/<video_id>.md`.
+
+**Custo**: cada vídeo analisado é uma chamada paga à API da Anthropic
+(modelo Claude Opus). Rodar `todos` em um canal com muitos vídeos já
+extraídos gera um custo proporcional ao número de vídeos.
