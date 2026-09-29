@@ -3,7 +3,7 @@ from pathlib import Path
 import anthropic
 from dotenv import load_dotenv
 
-from src.ai_report import generate_report
+from src.analyze_core import analyze_selected_documents
 from src.report_data import compute_channel_averages, load_video_documents
 from src.selection import parse_selection
 
@@ -36,22 +36,11 @@ def run(client, output_dir: Path, reports_dir: Path, input_fn=input, print_fn=pr
     channel_averages = compute_channel_averages(documents)
     selected = select_videos(documents, input_fn=input_fn, print_fn=print_fn)
 
-    processed = 0
-    failed_ids = []
-    for document in selected:
-        video = document.get("video", {})
-        video_id = video.get("id", "desconhecido")
-        print_fn(f"Analisando '{video.get('title', video_id)}' ({video_id})...")
-        try:
-            report_text = generate_report(client, document, channel_averages)
-            reports_dir.mkdir(parents=True, exist_ok=True)
-            (reports_dir / f"{video_id}.md").write_text(report_text, encoding="utf-8")
-            processed += 1
-        except Exception as exc:
-            print_fn(f"  erro ao analisar {video_id}, pulando: {exc}")
-            failed_ids.append(video_id)
+    processed_ids, failed_ids = analyze_selected_documents(
+        client, selected, channel_averages, reports_dir, print_fn=print_fn
+    )
 
-    print_fn(f"Concluído: {processed} relatório(s) gerado(s), {len(failed_ids)} com erro.")
+    print_fn(f"Concluído: {len(processed_ids)} relatório(s) gerado(s), {len(failed_ids)} com erro.")
     if failed_ids:
         print_fn(f"Vídeos com erro: {', '.join(failed_ids)}")
 
