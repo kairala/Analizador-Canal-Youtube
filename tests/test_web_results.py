@@ -76,6 +76,19 @@ def test_get_result_returns_only_extraction_when_report_is_missing(tmp_path, mon
     assert response.json() == {"video_id": "vid1", "extraction": document, "report": None}
 
 
+def test_get_result_returns_only_report_when_extraction_is_missing(tmp_path, monkeypatch):
+    reports_dir = tmp_path / "reports"
+    reports_dir.mkdir(parents=True)
+    (reports_dir / "vid1.md").write_text("# relatório do vid1", encoding="utf-8")
+
+    client = _client(tmp_path, monkeypatch)
+
+    response = client.get("/api/results/vid1")
+
+    assert response.status_code == 200
+    assert response.json() == {"video_id": "vid1", "extraction": None, "report": "# relatório do vid1"}
+
+
 def test_get_result_returns_404_when_video_id_is_unknown(tmp_path, monkeypatch):
     client = _client(tmp_path, monkeypatch)
 
