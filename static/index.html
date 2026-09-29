@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>YouTube Analytics Extractor</title>
+  <link rel="stylesheet" href="/static/app.css" />
+</head>
+<body>
+  <nav>
+    <button data-tab="setup">Configuração</button>
+    <button data-tab="extract">Extrair</button>
+    <button data-tab="analyze">Analisar</button>
+    <button data-tab="browse">Navegar</button>
+  </nav>
+
+  <section class="tab" data-tab="setup">
+    <h1>Configuração inicial</h1>
+    <form id="setup-form">
+      <label>
+        Conteúdo do client_secret.json
+        <textarea id="client-secret-input" rows="8" required></textarea>
+      </label>
+      <label>
+        Chave da API Anthropic
+        <input id="anthropic-key-input" type="password" required />
+      </label>
+      <button type="submit">Salvar</button>
+    </form>
+    <p class="error" id="setup-error"></p>
+  </section>
+
+  <section class="tab" data-tab="extract">
+    <h1>Extrair dados do YouTube</h1>
+    <button id="load-videos-button">Carregar vídeos do canal</button>
+    <div id="extract-video-list"></div>
+    <button id="start-extract-button">Extrair selecionados</button>
+    <p class="error" id="extract-error"></p>
+    <pre id="extract-log"></pre>
+  </section>
+
+  <section class="tab" data-tab="analyze">
+    <h1>Gerar relatórios com IA</h1>
+    <button id="load-analyzable-button">Carregar vídeos já extraídos</button>
+    <div id="analyze-video-list"></div>
+    <p id="analyze-call-count">Isso fará 0 chamada(s) à API da Anthropic.</p>
+    <button id="start-analyze-button">Gerar relatórios</button>
+    <p class="error" id="analyze-error"></p>
+    <pre id="analyze-log"></pre>
+  </section>
+
+  <section class="tab" data-tab="browse">
+    <h1>Navegar resultados</h1>
+    <button id="load-results-button">Atualizar lista</button>
+    <div id="results-list"></div>
+    <h2>Dados extraídos</h2>
+    <pre id="result-json"></pre>
+    <h2>Relatório</h2>
+    <pre id="result-report"></pre>
+  </section>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
