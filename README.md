@@ -94,3 +94,39 @@ Os relatórios ficam em `reports/<video_id>.md`.
 **Custo**: cada vídeo analisado é uma chamada paga à API da Anthropic
 (modelo Claude Opus). Rodar `todos` em um canal com muitos vídeos já
 extraídos gera um custo proporcional ao número de vídeos.
+
+## 7. App local com interface (binário)
+
+Além dos scripts de linha de comando, o projeto tem uma versão com interface
+web local, empacotável como um binário para rodar sem precisar instalar
+Python.
+
+### Rodar em modo desenvolvimento
+
+```bash
+source .venv/bin/activate
+python desktop.py
+```
+
+Isso abre uma janela nativa do app. Na primeira execução, a aba de
+Configuração pede o conteúdo do `client_secret.json` e a chave da API
+Anthropic — diferente dos scripts `main.py`/`analyze.py`, essas credenciais
+ficam salvas numa pasta de dados do usuário (fora da pasta do projeto), então
+só precisam ser configuradas uma vez.
+
+A partir daí, use as abas Extrair, Analisar e Navegar para rodar os mesmos
+fluxos de `main.py`/`analyze.py` pela interface, com o progresso exibido ao
+vivo.
+
+### Gerar o binário
+
+```bash
+source .venv/bin/activate
+pyinstaller build/desktop.spec --distpath dist
+```
+
+O executável fica em `dist/`. Como o PyInstaller não compila para outro
+sistema operacional, o binário do Windows precisa ser gerado numa máquina
+Windows — o workflow `.github/workflows/build-desktop.yml` faz isso
+automaticamente numa matriz macOS + Windows via GitHub Actions
+(`gh workflow run build-desktop.yml`).
