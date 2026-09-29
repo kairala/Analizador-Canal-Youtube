@@ -8,3 +8,6 @@ output/
 .pytest_cache/
 .env
 reports/
+dist/
+build/*
+!build/desktop.spec
