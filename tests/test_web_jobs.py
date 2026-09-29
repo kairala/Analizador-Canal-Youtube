@@ -64,3 +64,24 @@ def test_stream_of_unknown_job_name_returns_immediately():
     registry = JobRegistry()
 
     assert list(registry.stream("does-not-exist")) == []
+
+
+def test_an_exception_in_the_job_is_logged_instead_of_ending_the_stream_silently():
+    # Before the fix, runner() had no except clause: an exception (disk
+    # full, permission error, ...) killed the thread, the `finally` still
+    # pushed the SSE sentinel, and the stream just stopped with no
+    # "Concluído" line and no error line -- indistinguishable from a
+    # completed run.
+    registry = JobRegistry()
+
+    def failing_job(print_fn):
+        print_fn("linha 1")
+        raise RuntimeError("disco cheio")
+
+    registry.start("extract", failing_job)
+
+    lines = list(registry.stream("extract"))
+
+    assert lines[0] == "linha 1"
+    assert any("disco cheio" in line for line in lines[1:])
+    assert registry.is_running("extract") is False

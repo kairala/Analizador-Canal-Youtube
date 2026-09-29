@@ -28,6 +28,13 @@ class JobRegistry:
         def runner() -> None:
             try:
                 target(log)
+            except Exception as exc:
+                # Without this, an exception here (disk full, permission
+                # error, etc.) kills the thread silently: the `finally`
+                # below still pushes the SSE sentinel, so the stream just
+                # stops with no "Concluído" line and no error line -- the
+                # user can't tell a crash from a completed run.
+                log(f"erro inesperado no job '{name}': {exc}")
             finally:
                 job_queue.put(None)
                 with self._lock:

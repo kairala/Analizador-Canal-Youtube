@@ -97,6 +97,32 @@ def test_extract_rejects_when_no_valid_video_ids(tmp_path, monkeypatch):
     assert response.status_code == 400
 
 
+def test_extract_stream_reports_an_error_line_when_save_consolidated_fails(tmp_path, monkeypatch):
+    # extract_routes.py's job(print_fn) closure calls save_consolidated(...)
+    # outside any try/except, after extract_selected_videos already
+    # returned. Before src/web/jobs.py's runner() gained an except clause,
+    # a failure here (disk full, permission error, ...) killed the job
+    # thread silently: no "Concluído" line, no error line, stream just
+    # stopped. It must now surface as a log line instead.
+    videos = [{"id": "vid1", "title": "Video 1", "published_at": "2024-01-01T00:00:00Z"}]
+    _app, client = _client(tmp_path, monkeypatch, videos)
+
+    def _boom(*_args, **_kwargs):
+        raise OSError("disco cheio")
+
+    monkeypatch.setattr(extract_routes_module, "save_consolidated", _boom)
+
+    start_response = client.post("/api/extract", json={"video_ids": ["vid1"]})
+    assert start_response.status_code == 200
+
+    with client.stream("GET", "/api/extract/stream") as response:
+        body = "".join(response.iter_text())
+
+    assert "Processando 'Video 1'" in body
+    assert "disco cheio" in body
+    assert "Concluído" not in body
+
+
 def test_extract_rejects_when_already_running(tmp_path, monkeypatch):
     videos = [{"id": "vid1", "title": "Video 1", "published_at": "2024-01-01T00:00:00Z"}]
     app, client = _client(tmp_path, monkeypatch, videos)
