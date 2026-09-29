@@ -79,3 +79,25 @@ def test_extract_tab_has_a_status_element_for_the_oauth_popup_notice():
     assert 'id="extract-status"' in index_html
     extract_section = index_html.split('<section class="tab" data-tab="extract">', 1)[1]
     assert 'id="extract-status"' in extract_section.split("</section>", 1)[0]
+
+
+def test_load_videos_warns_about_the_oauth_popup_before_fetching_and_clears_it_either_way():
+    # loadVideos() is the first call that can trigger the Google OAuth
+    # browser popup on first use (via GET /api/videos -> get_credentials).
+    # The user must be warned a browser window may open before that call
+    # fires, and the notice must be cleared whether the call succeeds or
+    # fails -- not left stuck on screen forever.
+    app_js = _app_js()
+
+    match = re.search(r"async function loadVideos\([\s\S]*?\n\}\n", app_js)
+    assert match, "loadVideos not found in app.js"
+    body = match.group(0)
+
+    status_message_index = body.find("Abrindo o navegador para autorizar acesso ao Google")
+    fetch_call_index = body.find("fetchJSON(\"/api/videos\")")
+    assert status_message_index != -1, "loadVideos does not warn about the OAuth popup"
+    assert fetch_call_index != -1, "loadVideos does not call fetchJSON(\"/api/videos\")"
+    assert status_message_index < fetch_call_index, "status message must be shown before the fetch"
+
+    # cleared on both the success path and the catch block
+    assert body.count('$("extract-status").textContent = ""') >= 2

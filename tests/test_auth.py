@@ -1,5 +1,8 @@
 from unittest.mock import MagicMock, patch
 
+import pytest
+from google_auth_oauthlib.flow import WSGITimeoutError
+
 from src import auth
 
 
@@ -55,7 +58,7 @@ def test_get_credentials_falls_back_to_flow_when_refresh_fails(tmp_path):
         result = auth.get_credentials(client_secret_path, token_path, ["scope1"])
 
     flow_factory.assert_called_once_with(str(client_secret_path), ["scope1"])
-    flow.run_local_server.assert_called_once_with(port=0)
+    flow.run_local_server.assert_called_once_with(port=0, timeout_seconds=300)
     assert result is new_creds
     assert token_path.read_text(encoding="utf-8") == '{"fresh": true}'
 
@@ -73,5 +76,29 @@ def test_get_credentials_runs_flow_when_no_token_file(tmp_path):
         result = auth.get_credentials(client_secret_path, token_path, ["scope1"])
 
     flow_factory.assert_called_once_with(str(client_secret_path), ["scope1"])
+    flow.run_local_server.assert_called_once_with(port=0, timeout_seconds=300)
     assert result is new_creds
     assert token_path.read_text(encoding="utf-8") == '{"fresh": true}'
+
+
+def test_get_credentials_propagates_a_readable_error_when_the_flow_times_out(tmp_path):
+    # Without a timeout, run_local_server blocks forever if the browser
+    # doesn't open or the user never completes/cancels the consent screen --
+    # the calling HTTP request's threadpool worker (and, in the packaged
+    # binary, the whole app window) would hang indefinitely. The 5-minute
+    # timeout makes run_local_server raise WSGITimeoutError instead; that
+    # must propagate as a normal exception (it's a subclass of
+    # AttributeError, still an Exception) rather than being swallowed, so
+    # the web app's catch-all handler can turn it into a readable error.
+    token_path = tmp_path / "token.json"
+    client_secret_path = tmp_path / "client_secret.json"
+
+    flow = MagicMock()
+    flow.run_local_server.side_effect = WSGITimeoutError("Timed out waiting for response from authorization server")
+
+    with patch.object(auth.InstalledAppFlow, "from_client_secrets_file", return_value=flow):
+        with pytest.raises(WSGITimeoutError):
+            auth.get_credentials(client_secret_path, token_path, ["scope1"])
+
+    flow.run_local_server.assert_called_once_with(port=0, timeout_seconds=300)
+    assert not token_path.exists()

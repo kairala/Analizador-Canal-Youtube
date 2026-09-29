@@ -27,6 +27,13 @@ def get_credentials(client_secret_path: Path, token_path: Path, scopes: list[str
             creds = None
 
     flow = InstalledAppFlow.from_client_secrets_file(str(client_secret_path), scopes)
-    creds = flow.run_local_server(port=0)
+    # Without a timeout this blocks the calling thread forever if the browser
+    # doesn't open or the user never completes/cancels the Google consent
+    # screen -- in the packaged binary (console=False) that leaves the app
+    # window showing nothing, with no way to recover short of killing the
+    # process. `run_local_server` raises WSGITimeoutError (a subclass of
+    # AttributeError, so still a normal Exception) when this fires, which the
+    # web app's catch-all exception handler turns into a readable JSON error.
+    creds = flow.run_local_server(port=0, timeout_seconds=300)
     token_path.write_text(creds.to_json(), encoding="utf-8")
     return creds

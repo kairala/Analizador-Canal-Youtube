@@ -1,5 +1,6 @@
 # tests/test_web_app.py
 from fastapi.testclient import TestClient
+from google_auth_oauthlib.flow import WSGITimeoutError
 
 from src.web.app import create_app
 from src.web.services import get_youtube_service
@@ -23,3 +24,23 @@ def test_unhandled_exception_returns_json_500_instead_of_plaintext(monkeypatch):
     assert response.status_code == 500
     assert response.headers["content-type"].startswith("application/json")
     assert response.json() == {"detail": "conta do YouTube sem canal"}
+
+
+def test_oauth_timeout_becomes_a_readable_json_error_instead_of_hanging(monkeypatch):
+    # src/auth.py's get_credentials() now passes timeout_seconds=300 to
+    # run_local_server, which raises WSGITimeoutError if the browser doesn't
+    # open or the user never completes/cancels the Google consent screen.
+    # That must surface as a readable JSON error through the catch-all
+    # handler, not crash uncaught or hang the request.
+    def _timed_out():
+        raise WSGITimeoutError("Timed out waiting for response from authorization server")
+
+    app = create_app()
+    app.dependency_overrides[get_youtube_service] = _timed_out
+    client = TestClient(app, raise_server_exceptions=False)
+
+    response = client.get("/api/videos")
+
+    assert response.status_code == 500
+    assert response.headers["content-type"].startswith("application/json")
+    assert "Timed out" in response.json()["detail"]
