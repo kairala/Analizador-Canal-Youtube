@@ -1,5 +1,6 @@
 # build/desktop.spec
 # -*- mode: python ; coding: utf-8 -*-
+import sys
 from pathlib import Path
 
 project_root = Path(SPECPATH).parent
@@ -27,6 +28,14 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=False,
     console=False,
 )
+
+if sys.platform == "darwin":
+    app = BUNDLE(
+        exe,
+        name="yt-data-extractor.app",
+        bundle_identifier="com.ytdataextractor.app",
+        info_plist={"NSHighResolutionCapable": True},
+    )

@@ -16,7 +16,21 @@ jobs:
           python-version: "3.11"
       - run: pip install -r requirements.txt
       - run: pyinstaller build/desktop.spec --distpath dist
+      # actions/upload-artifact does not preserve Unix permissions (e.g. the
+      # executable +x bit), so a bare uploaded dist/ would need a manual
+      # `chmod +x` before it could run at all. A tarball preserves them; zip
+      # (what upload-artifact uses internally) does not. Windows .exe files
+      # don't need an executable bit preserved, so they're uploaded as-is.
+      - name: Archive dist (preserve permissions)
+        if: runner.os != 'Windows'
+        run: tar -czf dist.tar.gz -C dist .
       - uses: actions/upload-artifact@v4
+        if: runner.os != 'Windows'
+        with:
+          name: yt-data-extractor-${{ matrix.os }}
+          path: dist.tar.gz
+      - uses: actions/upload-artifact@v4
+        if: runner.os == 'Windows'
         with:
           name: yt-data-extractor-${{ matrix.os }}
           path: dist/

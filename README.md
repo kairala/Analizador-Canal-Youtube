@@ -130,3 +130,9 @@ sistema operacional, o binário do Windows precisa ser gerado numa máquina
 Windows — o workflow `.github/workflows/build-desktop.yml` faz isso
 automaticamente numa matriz macOS + Windows via GitHub Actions
 (`gh workflow run build-desktop.yml`).
+
+No macOS, o build gera `dist/yt-data-extractor.app`. Esse app não é assinado
+nem notarizado, então o Gatekeeper bloqueia a primeira abertura ("app está
+danificado" ou aviso de desenvolvedor não identificado). Na primeira vez,
+clique com o botão direito no app e escolha "Abrir" (em vez de dar duplo
+clique) — depois disso, o Gatekeeper libera aberturas seguintes normalmente.
