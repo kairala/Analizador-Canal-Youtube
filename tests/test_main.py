@@ -116,6 +116,8 @@ def test_run_saves_all_videos_and_consolidated_file(tmp_path, monkeypatch):
 
 
 def test_run_continues_when_saving_one_video_fails(tmp_path, monkeypatch):
+    import src.extract_core as extract_core_module
+
     videos = [
         {"id": "vid1", "title": "Video 1", "published_at": "2024-01-01T00:00:00Z", "duration": "PT1M"},
         {"id": "vid2", "title": "Video 2", "published_at": "2024-01-02T00:00:00Z", "duration": "PT2M"},
@@ -124,14 +126,14 @@ def test_run_continues_when_saving_one_video_fails(tmp_path, monkeypatch):
     analytics_service = ScriptedAnalyticsService(_always_empty_responder)
     monkeypatch.setattr(main_module, "list_channel_videos", fake_list_channel_videos)
 
-    real_save_video_report = main_module.save_video_report
+    real_save_video_report = extract_core_module.save_video_report
 
     def flaky_save(output_dir, video_id, document):
         if video_id == "vid1":
             raise OSError("disk full")
         return real_save_video_report(output_dir, video_id, document)
 
-    monkeypatch.setattr(main_module, "save_video_report", flaky_save)
+    monkeypatch.setattr(extract_core_module, "save_video_report", flaky_save)
 
     run(
         youtube_service,
@@ -148,6 +150,8 @@ def test_run_continues_when_saving_one_video_fails(tmp_path, monkeypatch):
 
 
 def test_run_prints_summary_and_failed_ids_even_when_all_videos_fail(tmp_path, monkeypatch):
+    import src.extract_core as extract_core_module
+
     videos = [
         {"id": "vid1", "title": "Video 1", "published_at": "2024-01-01T00:00:00Z", "duration": "PT1M"},
         {"id": "vid2", "title": "Video 2", "published_at": "2024-01-02T00:00:00Z", "duration": "PT2M"},
@@ -159,7 +163,7 @@ def test_run_prints_summary_and_failed_ids_even_when_all_videos_fail(tmp_path, m
     def always_fails(output_dir, video_id, document):
         raise OSError("disk full")
 
-    monkeypatch.setattr(main_module, "save_video_report", always_fails)
+    monkeypatch.setattr(extract_core_module, "save_video_report", always_fails)
     messages = []
 
     run(

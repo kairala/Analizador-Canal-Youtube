@@ -4,16 +4,10 @@ from pathlib import Path
 from googleapiclient.discovery import build
 
 from src.auth import SCOPES, get_credentials
-from src.date_ranges import analytics_date_range
+from src.extract_core import extract_selected_videos, extract_video
 from src.reports import REPORTS
 from src.selection import parse_selection
-from src.storage import (
-    assemble_video_document,
-    save_channel_videos_snapshot,
-    save_consolidated,
-    save_video_report,
-)
-from src.youtube_analytics import run_report, shape_report_result
+from src.storage import save_channel_videos_snapshot, save_consolidated
 from src.youtube_data import list_channel_videos
 
 
@@ -30,23 +24,6 @@ def select_videos(videos, input_fn=input, print_fn=print):
             return [videos[i - 1] for i in indices]
         except ValueError as exc:
             print_fn(f"Entrada inválida: {exc}. Tente novamente.")
-
-
-def extract_video(analytics_service, video, today, report_defs=REPORTS, print_fn=print):
-    start_date, end_date = analytics_date_range(video["published_at"], today)
-    shaped = {}
-    errors = {}
-    for report_def in report_defs:
-        try:
-            rows = run_report(analytics_service, video["id"], start_date, end_date, report_def)
-        except Exception as exc:
-            print_fn(f"  aviso: falha ao extrair '{report_def.name}' para {video['id']}: {exc}")
-            rows = []
-            errors[report_def.name] = str(exc)
-        shaped[report_def.name] = shape_report_result(report_def, rows)
-    if errors:
-        shaped["errors"] = errors
-    return shaped
 
 
 def run(
@@ -67,18 +44,9 @@ def run(
 
     selected = select_videos(videos, input_fn=input_fn, print_fn=print_fn)
 
-    documents = []
-    failed_ids = []
-    for video in selected:
-        print_fn(f"Processando '{video['title']}' ({video['id']})...")
-        try:
-            shaped_reports = extract_video(analytics_service, video, today, report_defs, print_fn=print_fn)
-            document = assemble_video_document(video, shaped_reports)
-            save_video_report(output_dir, video["id"], document)
-            documents.append(document)
-        except Exception as exc:
-            print_fn(f"  erro ao processar {video['id']}, pulando: {exc}")
-            failed_ids.append(video["id"])
+    documents, failed_ids = extract_selected_videos(
+        analytics_service, output_dir, today, selected, print_fn=print_fn, report_defs=report_defs
+    )
 
     if documents:
         save_consolidated(output_dir, documents, today.isoformat())
