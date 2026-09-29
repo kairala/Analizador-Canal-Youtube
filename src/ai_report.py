@@ -39,8 +39,11 @@ def generate_report(
     ) as stream:
         response = stream.get_final_message()
 
-    if response.stop_reason == "refusal":
-        raise RuntimeError("a análise foi recusada pelo modelo (stop_reason=refusal)")
+    if response.stop_reason not in ("end_turn", "stop_sequence"):
+        raise RuntimeError(f"resposta incompleta do modelo (stop_reason={response.stop_reason})")
 
     text_blocks = [block.text for block in response.content if block.type == "text"]
-    return "\n".join(text_blocks)
+    report_text = "\n".join(text_blocks)
+    if not report_text.strip():
+        raise RuntimeError("o modelo não retornou texto para o relatório")
+    return report_text

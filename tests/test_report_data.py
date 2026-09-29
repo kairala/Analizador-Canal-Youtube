@@ -55,17 +55,37 @@ def test_compute_channel_averages_averages_core_metrics_across_videos():
     assert averages["subscribersLost"] == 1
 
 
-def test_compute_channel_averages_handles_missing_or_empty_totals():
+def test_compute_channel_averages_ignores_videos_without_totals_data():
+    # A video published shortly before extraction has no Analytics data yet
+    # (~48h reporting lag) — its `totals` comes back as `{}`, not an error.
+    # It must not be counted as a zero-views video and dilute the average.
     documents = [{"totals": {"views": 100}}, {"totals": {}}]
 
     averages = compute_channel_averages(documents)
 
-    assert averages["views"] == 50
+    assert averages["views"] == 100
     assert averages["likes"] == 0
+
+
+def test_compute_channel_averages_ignores_videos_with_missing_totals_key():
+    documents = [{"totals": {"views": 100}}, {"video": {"id": "no-data-yet"}}]
+
+    averages = compute_channel_averages(documents)
+
+    assert averages["views"] == 100
 
 
 def test_compute_channel_averages_returns_zeros_for_no_documents():
     averages = compute_channel_averages([])
+
+    assert averages["views"] == 0
+    assert averages["likes"] == 0
+
+
+def test_compute_channel_averages_returns_zeros_when_no_video_has_data():
+    documents = [{"totals": {}}, {"totals": {}}]
+
+    averages = compute_channel_averages(documents)
 
     assert averages["views"] == 0
     assert averages["likes"] == 0

@@ -83,3 +83,23 @@ def test_generate_report_raises_on_refusal():
 
     with pytest.raises(RuntimeError):
         generate_report(client, video_document, {})
+
+
+def test_generate_report_raises_when_response_is_incomplete():
+    # e.g. thinking + response text together hit the max_tokens cap — the
+    # model never reached a natural end_turn, so the report is truncated.
+    response = FakeResponse([FakeTextBlock("## Resumo de desempenho\ntrunc")], stop_reason="max_tokens")
+    client = FakeClient(response)
+    video_document = {"video": {"id": "vid1"}, "totals": {}}
+
+    with pytest.raises(RuntimeError):
+        generate_report(client, video_document, {})
+
+
+def test_generate_report_raises_when_response_has_no_text():
+    response = FakeResponse([], stop_reason="end_turn")
+    client = FakeClient(response)
+    video_document = {"video": {"id": "vid1"}, "totals": {}}
+
+    with pytest.raises(RuntimeError):
+        generate_report(client, video_document, {})
