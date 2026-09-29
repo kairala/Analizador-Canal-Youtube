@@ -2,7 +2,7 @@
 from pathlib import Path
 
 from fastapi import FastAPI
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from src.web.analyze_routes import router as analyze_router
@@ -23,6 +23,14 @@ def create_app() -> FastAPI:
     app.include_router(analyze_router)
     app.include_router(results_router)
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+    @app.exception_handler(Exception)
+    async def unhandled_exception_handler(request, exc):
+        # Any exception that isn't an explicit HTTPException would otherwise fall
+        # through to Starlette's default plain-text 500 response, which the
+        # frontend's `response.json()` calls can't parse — turning every
+        # unexpected backend error into a silent, invisible failure in the UI.
+        return JSONResponse(status_code=500, content={"detail": str(exc) or type(exc).__name__})
 
     @app.get("/")
     def index():

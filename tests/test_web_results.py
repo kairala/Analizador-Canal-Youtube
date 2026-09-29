@@ -95,3 +95,22 @@ def test_get_result_returns_404_when_video_id_is_unknown(tmp_path, monkeypatch):
     response = client.get("/api/results/does-not-exist")
 
     assert response.status_code == 404
+
+
+def test_get_result_treats_a_corrupted_extraction_file_as_unavailable(tmp_path, monkeypatch):
+    # A file left mid-write (e.g. the app was closed during extraction) should
+    # behave like a missing extraction, not 500 the whole detail endpoint.
+    por_video = tmp_path / "output" / "por_video"
+    por_video.mkdir(parents=True)
+    (por_video / "vid1.json").write_text('{"video": {"id": "vid1"', encoding="utf-8")
+
+    reports_dir = tmp_path / "reports"
+    reports_dir.mkdir(parents=True)
+    (reports_dir / "vid1.md").write_text("# relatório do vid1", encoding="utf-8")
+
+    client = _client(tmp_path, monkeypatch)
+
+    response = client.get("/api/results/vid1")
+
+    assert response.status_code == 200
+    assert response.json() == {"video_id": "vid1", "extraction": None, "report": "# relatório do vid1"}

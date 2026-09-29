@@ -11,7 +11,13 @@ def load_video_documents(output_dir: Path) -> list[dict]:
 
     documents = []
     for path in sorted(por_video_dir.glob("*.json")):
-        documents.append(json.loads(path.read_text(encoding="utf-8")))
+        try:
+            documents.append(json.loads(path.read_text(encoding="utf-8")))
+        except json.JSONDecodeError:
+            # A file left mid-write (e.g. the app was closed during extraction)
+            # is a normal outcome, not a fatal error — skip it and keep going
+            # instead of crashing every caller of this function.
+            continue
     return documents
 
 

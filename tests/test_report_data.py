@@ -19,6 +19,21 @@ def test_load_video_documents_returns_empty_list_when_directory_missing(tmp_path
     assert load_video_documents(tmp_path) == []
 
 
+def test_load_video_documents_skips_unparseable_files_and_keeps_the_rest(tmp_path):
+    # A file left mid-write (e.g. the app was closed during extraction) is a
+    # normal outcome — it must not crash the whole function for every other
+    # already-extracted video.
+    por_video = tmp_path / "por_video"
+    por_video.mkdir()
+    (por_video / "vid1.json").write_text(json.dumps({"video": {"id": "vid1"}}), encoding="utf-8")
+    (por_video / "vid2.json").write_text('{"video": {"id": "vid2"', encoding="utf-8")
+
+    documents = load_video_documents(tmp_path)
+
+    assert len(documents) == 1
+    assert documents[0]["video"]["id"] == "vid1"
+
+
 def test_compute_channel_averages_averages_core_metrics_across_videos():
     documents = [
         {

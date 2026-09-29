@@ -46,7 +46,15 @@ def get_result(video_id: str):
     if not extraction_path.exists() and not report_path.exists():
         raise HTTPException(status_code=404, detail="vídeo não encontrado")
 
-    extraction = json.loads(extraction_path.read_text(encoding="utf-8")) if extraction_path.exists() else None
+    extraction = None
+    if extraction_path.exists():
+        try:
+            extraction = json.loads(extraction_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            # A corrupted/truncated extraction file should behave like a
+            # missing one, not 500 the whole detail endpoint.
+            extraction = None
+
     report = report_path.read_text(encoding="utf-8") if report_path.exists() else None
 
     return {"video_id": video_id, "extraction": extraction, "report": report}
