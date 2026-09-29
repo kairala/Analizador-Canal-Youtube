@@ -6,3 +6,4 @@ client_secret.json
 token.json
 output/
 .pytest_cache/
+.env
